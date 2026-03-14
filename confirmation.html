@@ -134,28 +134,3 @@
 </script>
 </body>
 </html>
-
-<script src="js/core.js"></script>
-<script>
-  const orderId = localStorage.getItem('ss_lastOrder');
-  const order = orderId ? Orders.byId(orderId) : null;
-
-  if (order) {
-    document.getElementById('orderId').textContent = 'Order #' + order.id;
-    document.getElementById('orderBox').innerHTML = `
-      <h3>Order Details</h3>
-      <div class="order-detail-row"><span>Order ID</span><span>#${order.id}</span></div>
-      <div class="order-detail-row"><span>Date</span><span>${new Date(order.date).toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'})}</span></div>
-      <div class="order-detail-row"><span>Name</span><span>${order.customer.name}</span></div>
-      <div class="order-detail-row"><span>Email</span><span>${order.customer.email}</span></div>
-      <div class="order-detail-row"><span>Address</span><span>${order.customer.address}</span></div>
-      <div class="order-detail-row"><span>Items</span><span>${order.items.map(i=>i.name+'×'+i.qty).join(', ')}</span></div>
-      <div class="order-detail-row"><span>Total</span><span style="color:var(--green);font-weight:500">$${order.total.toFixed(2)}</span></div>
-      <div class="order-detail-row"><span>Status</span><span><span style="background:rgba(45,255,110,.15);color:var(--green);padding:.2rem .6rem;font-size:.7rem;letter-spacing:.1em;text-transform:uppercase">${order.status}</span></span></div>`;
-  } else {
-    document.getElementById('orderId').textContent = '';
-    document.getElementById('orderBox').innerHTML = '<p style="color:var(--gray-light);font-size:.85rem">No recent order found.</p>';
-  }
-</script>
-</body>
-</html>

@@ -299,7 +299,7 @@
         orderAmount: total,
         customerName: selectedAddress.name,
         customerPhone: selectedAddress.phone,
-        customerEmail: window.getCurrentUser ? window.getCurrentUser().email : 'customer@example.com',
+        customerEmail: window.getUser ? (window.getUser().email || 'customer@example.com') : 'customer@example.com',
         returnUrl: `${location.origin}/confirmation.html?orderId=${orderId}`
       });
       
@@ -308,14 +308,18 @@
       }
       
       btn.textContent = 'Redirecting to payment...';
-      cashfree.pay({
+      const checkoutProvider = window.cashfree || window.Cashfree;
+      if (!checkoutProvider || !checkoutProvider.pay) {
+        throw new Error('Cashfree SDK not loaded. Please reload the page.');
+      }
+      checkoutProvider.pay({
         orderId: orderId,
         orderAmount: String(total),
         orderCurrency: 'INR',
         orderNote: 'StepStyle purchase',
         customerName: selectedAddress.name,
         customerPhone: selectedAddress.phone,
-        customerEmail: window.getCurrentUser ? window.getCurrentUser().email : 'customer@example.com',
+        customerEmail: window.getUser ? (window.getUser().email || 'customer@example.com') : 'customer@example.com',
         tokenData: {
           token: cashfreeOrder.orderToken,
           tokenType: 'ORDER_TOKEN'

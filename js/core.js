@@ -96,6 +96,10 @@ const Cart = {
 window.getCart = Cart.get;
 window.clearCart = Cart.clear;
 window.setCart = Cart.save;
+window.getUser = () => {
+  try { const u = localStorage.getItem('ss_user'); return u ? JSON.parse(u) : null; } catch { return null; }
+};
+window.setUser = (u) => { try { localStorage.setItem('ss_user', JSON.stringify(u)); } catch {} };
 
 function updateCartBadge() {
   const badges = document.querySelectorAll('.cart-badge');

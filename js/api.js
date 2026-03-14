@@ -82,10 +82,14 @@ const AuthAPI = {
   },
   
   updateProfile: async (name, phone) => {
-    return await apiFetch('/auth/profile', {
+    const data = await apiFetch('/user/profile', {
       method: 'PUT',
       body: JSON.stringify({ name, phone }),
     });
+    if (data) {
+      setCurrentUser({ ...(getCurrentUser() || {}), name: data.name, email: data.email });
+    }
+    return data;
   },
   
   forgotPassword: async (email) => {
