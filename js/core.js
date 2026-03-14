@@ -92,6 +92,11 @@ const Cart = {
   clear: () => { Cart.save([]); updateCartBadge(); },
 };
 
+// Expose global cart helpers
+window.getCart = Cart.get;
+window.clearCart = Cart.clear;
+window.setCart = Cart.save;
+
 function updateCartBadge() {
   const badges = document.querySelectorAll('.cart-badge');
   const count = Cart.count();

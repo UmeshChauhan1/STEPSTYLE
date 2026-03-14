@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
   <title>Checkout — StepStyle</title>
   <link rel="stylesheet" href="css/style.css"/>
-  <script src="https://js.stripe.com/v3/"></script>
+  <script src="https://sdk.cashfree.com/js/ui/1.0.0/cashfree.sandbox.js"></script>
   <style>
     .checkout-container { max-width: 1200px; margin: 0 auto; padding: 2rem 1rem; }
     .checkout-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-top: 2rem; }
@@ -91,7 +91,7 @@
       <!-- Payment Method -->
       <div class="checkout-section" style="margin-top:1.5rem">
         <h2>Payment Method</h2>
-        <div class="stripe-element" id="card-element"></div>
+        <p style="font-size:.9rem;color:var(--gray-light)">You can pay via UPI, card, wallets using Cashfree checkout.</p>
         <div class="error" id="cardError"></div>
       </div>
     </div>
@@ -139,25 +139,13 @@
     document.getElementById('authLinkMobile').innerHTML = `<a href="account.html">${user.name}</a>`;
   }
   
-  let stripe, cardElement, selectedAddress, appliedCoupon = null;
-  const cart = window.getCart();
+  let selectedAddress = null;
+  let appliedCoupon = null;
+  const cart = window.getCart ? window.getCart() : [];
   
   if (!cart || cart.length === 0) {
     alert('Cart is empty');
     window.location.href = 'shop.html';
-  }
-  
-  // Initialize Stripe
-  async function initStripe() {
-    const stripeKey = 'pk_test_51234567890'; // Replace with actual test key from .env
-    stripe = Stripe(stripeKey);
-    const elements = stripe.elements();
-    cardElement = elements.create('card', { style: { base: { color: '#fff' } } });
-    cardElement.mount('#card-element');
-    
-    cardElement.addEventListener('change', (e) => {
-      document.getElementById('cardError').textContent = e.error ? e.error.message : '';
-    });
   }
   
   // Load user addresses
@@ -289,8 +277,7 @@
       btn.classList.add('loading');
       btn.textContent = 'Creating order...';
       
-      // Step 1: Create order
-      const orderData = await APIs.orders.create(
+      const orderResult = await APIs.orders.create(
         cart.map(item => ({
           productId: item.id,
           name: item.name,
@@ -303,47 +290,39 @@
         shippingMethod,
         appliedCoupon?.code
       );
+      const order = orderResult.order;
+      const orderId = order.id || order.orderId || `SS-${Date.now()}`;
       
-      const orderId = orderData.order._id;
-      btn.textContent = 'Creating payment intent...';
-      
-      // Step 2: Create payment intent
-      const { clientSecret } = await APIs.payments.createIntent(orderId);
-      
-      btn.textContent = 'Processing payment...';
-      
-      // Step 3: Confirm payment with Stripe
-      const { paymentIntent, error } = await stripe.confirmCardPayment(clientSecret, {
-        payment_method: {
-          card: cardElement,
-          billing_details: {
-            name: selectedAddress.name,
-            phone: selectedAddress.phone,
-            address: {
-              line1: selectedAddress.line1,
-              city: selectedAddress.city,
-              state: selectedAddress.state,
-              postal_code: selectedAddress.zip,
-              country: selectedAddress.country
-            }
-          }
-        }
+      btn.textContent = 'Preparing Cashfree checkout...';
+      const cashfreeOrder = await CashfreeAPI.createOrder({
+        orderId,
+        orderAmount: total,
+        customerName: selectedAddress.name,
+        customerPhone: selectedAddress.phone,
+        customerEmail: window.getCurrentUser ? window.getCurrentUser().email : 'customer@example.com',
+        returnUrl: `${location.origin}/confirmation.html?orderId=${orderId}`
       });
       
-      if (error) {
-        throw new Error(error.message);
+      if (!cashfreeOrder.orderToken) {
+        throw new Error('Cashfree order token not returned');
       }
       
-      // Step 4: Confirm on backend
-      await APIs.payments.confirm(orderId, paymentIntent.id);
-      
-      showToast('Payment successful! Order confirmed...', 'success');
-      window.clearCart();
-      
-      setTimeout(() => {
-        window.location.href = `confirmation.html?orderId=${orderId}`;
-      }, 1500);
-      
+      btn.textContent = 'Redirecting to payment...';
+      cashfree.pay({
+        orderId: orderId,
+        orderAmount: String(total),
+        orderCurrency: 'INR',
+        orderNote: 'StepStyle purchase',
+        customerName: selectedAddress.name,
+        customerPhone: selectedAddress.phone,
+        customerEmail: window.getCurrentUser ? window.getCurrentUser().email : 'customer@example.com',
+        tokenData: {
+          token: cashfreeOrder.orderToken,
+          tokenType: 'ORDER_TOKEN'
+        },
+        notifyUrl: `${location.origin}/confirmation.html?orderId=${orderId}`,
+        returnUrl: `${location.origin}/confirmation.html?orderId=${orderId}`
+      });
     } catch (err) {
       document.getElementById('cardError').textContent = err.message || 'Payment failed';
       btn.classList.remove('loading');
@@ -352,7 +331,6 @@
   };
   
   // Init
-  initStripe();
   loadAddresses();
   renderOrderItems();
   updateTotal();

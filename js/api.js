@@ -1,5 +1,5 @@
 // API Configuration
-const API_BASE_URL = 'http://localhost:5000/api';
+const API_BASE_URL = 'http://localhost:5001/api';
 
 // ━━━ UTILITY FUNCTIONS ━━━
 const getAuthToken = () => localStorage.getItem('ss_token');
@@ -217,6 +217,19 @@ const ReviewsAPI = {
       body: JSON.stringify({ helpful }),
     });
   },
+};
+
+// ━━━ CASHFREE API ━━━
+const CashfreeAPI = {
+  getConfig: async () => {
+    return await apiFetch('/cashfree/config');
+  },
+  createOrder: async (payload) => {
+    return await apiFetch('/cashfree/create-order', {
+      method: 'POST',
+      body: JSON.stringify(payload)
+    });
+  }
 };
 
 // ━━━ WISHLIST API ━━━
