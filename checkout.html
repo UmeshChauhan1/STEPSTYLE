@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>Checkout — StepStyle</title>
+  <link rel="stylesheet" href="css/style.css"/>
+  <script src="https://js.stripe.com/v3/"></script>
+  <style>
+    .checkout-container { max-width: 1200px; margin: 0 auto; padding: 2rem 1rem; }
+    .checkout-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-top: 2rem; }
+    .checkout-section { background: var(--gray); padding: 1.5rem; border-radius: 12px; border: 1px solid var(--gray-mid); }
+    .checkout-section h2 { font-size: 1.1rem; margin-bottom: 1rem; font-weight: 600; }
+    .form-group { margin-bottom: 1rem; }
+    .form-group label { display: block; font-size: .9rem; margin-bottom: .25rem; font-weight: 500; }
+    .form-group input, .form-group select { width: 100%; padding: .75rem; border: 1px solid var(--gray-mid); border-radius: 8px; background: var(--gray-mid); color: var(--white); font-size: .9rem; }
+    .form-group input:focus, .form-group select:focus { outline: none; border-color: var(--green); }
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+    .order-summary { background: var(--gray-dark); padding: 1.5rem; border-radius: 12px; border: 1px solid var(--gray-mid); position: sticky; top: 2rem; }
+    .order-summary h2 { font-size: 1.1rem; margin-bottom: 1rem; }
+    .order-item { display: flex; justify-content: space-between; margin-bottom: .75rem; padding-bottom: .75rem; border-bottom: 1px solid var(--gray-mid); }
+    .item-info { flex: 1; }
+    .item-info p { font-size: .85rem; color: var(--gray-light); margin: .25rem 0; }
+    .item-price { font-weight: 600; }
+    .summary-row { display: flex; justify-content: space-between; margin: .75rem 0; font-size: .95rem; }
+    .summary-row.total { font-size: 1.1rem; font-weight: 600; border-top: 1px solid var(--gray-mid); padding-top: 1rem; margin-top: 1rem; }
+    .coupon-section { margin-bottom: 1.5rem; padding-bottom: 1.5rem; border-bottom: 1px solid var(--gray-mid); }
+    .coupon-input-group { display: flex; gap: .5rem; }
+    .coupon-input-group input { flex: 1; }
+    .coupon-input-group button { padding: .75rem 1.5rem; background: var(--green); color: var(--black); border: none; border-radius: 8px; cursor: pointer; font-weight: 500; font-size: .9rem; }
+    .coupon-input-group button:hover { background: #2dd657; }
+    .stripe-element { padding: .75rem; border: 1px solid var(--gray-mid); border-radius: 8px; background: var(--gray-mid); }
+    .pay-btn { width: 100%; padding: 1rem; background: var(--green); color: var(--black); border: none; border-radius: 8px; font-weight: 600; font-size: 1rem; cursor: pointer; margin-top: 1.5rem; }
+    .pay-btn:hover { background: #2dd657; }
+    .pay-btn.loading { opacity: 0.6; pointer-events: none; }
+    .error { color: #ff4d4d; font-size: .85rem; margin-top: .25rem; }
+    .success { color: var(--green); font-size: .85rem; margin-top: .25rem; }
+    .address-selector { display: grid; grid-template-columns: 1fr; gap: 1rem; margin-bottom: 1.5rem; }
+    .address-option { padding: 1rem; border: 2px solid var(--gray-mid); border-radius: 8px; cursor: pointer; transition: all 0.2s; }
+    .address-option:hover { border-color: var(--green); }
+    .address-option.selected { border-color: var(--green); background: var(--gray-mid); }
+    .address-option p { margin: .25rem 0; font-size: .9rem; }
+    @media (max-width: 768px) { .checkout-grid { grid-template-columns: 1fr; } .order-summary { position: relative; top: 0; } }
+  </style>
+</head>
+<body>
+<nav class="navbar">
+  <a class="logo" href="index.html">STEP<span>STYLE</span></a>
+  <ul class="nav-links"><li><a href="index.html">Home</a></li><li><a href="shop.html">Shop</a></li><li id="authLink"><a href="login.html">Login</a></li></ul>
+  <div class="nav-icons"><button class="hamburger" id="hamburger"><span></span><span></span><span></span></button></div>
+</nav>
+<ul class="mobile-nav" id="mobileNav"><li><a href="index.html">Home</a></li><li><a href="shop.html">Shop</a></li><li id="authLinkMobile"><a href="login.html">Login</a></li></ul>
+
+<div class="checkout-container">
+  <h1>Checkout</h1>
+  
+  <div class="checkout-grid">
+    <!-- Left: Form -->
+    <div>
+      <!-- Shipping Address -->
+      <div class="checkout-section">
+        <h2>Shipping Address</h2>
+        <div id="addressList" class="address-selector"></div>
+        <button id="addAddressBtn" style="width:100%;padding:0.75rem;background:var(--green);color:var(--black);border:none;border-radius:8px;cursor:pointer;margin-bottom:1.5rem">+ Add New Address</button>
+        
+        <div id="addressFormContainer" style="display:none">
+          <div class="form-group"><label>Full Name</label><input type="text" id="addressName"/></div>
+          <div class="form-group"><label>Phone</label><input type="tel" id="addressPhone"/></div>
+          <div class="form-group"><label>Address Line 1</label><input type="text" id="addressLine1"/></div>
+          <div class="form-group"><label>Address Line 2</label><input type="text" id="addressLine2"/></div>
+          <div class="form-row">
+            <div class="form-group"><label>City</label><input type="text" id="addressCity"/></div>
+            <div class="form-group"><label>State</label><input type="text" id="addressState"/></div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label>Postal Code</label><input type="text" id="addressZip"/></div>
+            <div class="form-group"><label>Country</label><input type="text" id="addressCountry" value="India"/></div>
+          </div>
+          <button id="saveAddressBtn" style="width:100%;padding:0.75rem;background:var(--green);color:var(--black);border:none;border-radius:8px;cursor:pointer">Save Address</button>
+        </div>
+      </div>
+      
+      <!-- Shipping Method -->
+      <div class="checkout-section" style="margin-top:1.5rem">
+        <h2>Shipping Method</h2>
+        <div class="form-group"><label><input type="radio" name="shipping" value="standard" checked/> Standard (5-7 days) - ₹50</label></div>
+        <div class="form-group"><label><input type="radio" name="shipping" value="express"/> Express (2-3 days) - ₹150</label></div>
+        <div class="form-group"><label><input type="radio" name="shipping" value="overnight"/> Overnight - ₹300</label></div>
+      </div>
+      
+      <!-- Payment Method -->
+      <div class="checkout-section" style="margin-top:1.5rem">
+        <h2>Payment Method</h2>
+        <div class="stripe-element" id="card-element"></div>
+        <div class="error" id="cardError"></div>
+      </div>
+    </div>
+    
+    <!-- Right: Order Summary -->
+    <div>
+      <div class="order-summary">
+        <h2>Order Summary</h2>
+        
+        <div class="coupon-section">
+          <div class="coupon-input-group">
+            <input type="text" id="couponCode" placeholder="Enter coupon code"/>
+            <button onclick="applyCoupon()">Apply</button>
+          </div>
+          <div id="couponStatus"></div>
+        </div>
+        
+        <div id="orderItems"></div>
+        
+        <div class="summary-row"><span>Subtotal</span><span id="subtotal">₹0</span></div>
+        <div class="summary-row"><span>Coupon Discount</span><span id="discount">-₹0</span></div>
+        <div class="summary-row"><span>Shipping</span><span id="shipping">₹50</span></div>
+        <div class="summary-row"><span>Tax (8%)</span><span id="tax">₹0</span></div>
+        <div class="summary-row total"><span>Total</span><span id="total">₹0</span></div>
+        
+        <button id="payBtn" class="pay-btn">Pay Now</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="js/api.js"></script>
+<script src="js/core.js"></script>
+<script>
+  // Check authentication
+  if (!window.checkAuth()) {
+    localStorage.setItem('ss_redirect', 'checkout.html');
+    window.location.href = 'login.html';
+  }
+  
+  // Update auth link
+  const user = window.getUser();
+  if (user) {
+    document.getElementById('authLink').innerHTML = `<a href="account.html">${user.name}</a>`;
+    document.getElementById('authLinkMobile').innerHTML = `<a href="account.html">${user.name}</a>`;
+  }
+  
+  let stripe, cardElement, selectedAddress, appliedCoupon = null;
+  const cart = window.getCart();
+  
+  if (!cart || cart.length === 0) {
+    alert('Cart is empty');
+    window.location.href = 'shop.html';
+  }
+  
+  // Initialize Stripe
+  async function initStripe() {
+    const stripeKey = 'pk_test_51234567890'; // Replace with actual test key from .env
+    stripe = Stripe(stripeKey);
+    const elements = stripe.elements();
+    cardElement = elements.create('card', { style: { base: { color: '#fff' } } });
+    cardElement.mount('#card-element');
+    
+    cardElement.addEventListener('change', (e) => {
+      document.getElementById('cardError').textContent = e.error ? e.error.message : '';
+    });
+  }
+  
+  // Load user addresses
+  async function loadAddresses() {
+    try {
+      const user = await APIs.user.getProfile();
+      const container = document.getElementById('addressList');
+      container.innerHTML = '';
+      
+      user.addresses.forEach((addr, idx) => {
+        const div = document.createElement('div');
+        div.className = 'address-option' + (idx === 0 ? ' selected' : '');
+        div.innerHTML = `
+          <p><strong>${addr.name}</strong> ${addr.phone}</p>
+          <p>${addr.line1}, ${addr.line2 || ''}</p>
+          <p>${addr.city}, ${addr.state} ${addr.zip} ${addr.country}</p>
+        `;
+        div.onclick = () => selectAddress(addr, idx);
+        container.appendChild(div);
+      });
+      
+      if (user.addresses.length > 0) {
+        selectedAddress = user.addresses[0];
+      }
+    } catch (err) {
+      console.error('Failed to load addresses:', err);
+    }
+  }
+  
+  function selectAddress(addr, idx) {
+    document.querySelectorAll('.address-option').forEach((el, i) => {
+      el.classList.toggle('selected', i === idx);
+    });
+    selectedAddress = addr;
+  }
+  
+  document.getElementById('addAddressBtn').onclick = () => {
+    document.getElementById('addressFormContainer').style.display = 'block';
+  };
+  
+  document.getElementById('saveAddressBtn').onclick = async () => {
+    const addr = {
+      name: document.getElementById('addressName').value,
+      phone: document.getElementById('addressPhone').value,
+      line1: document.getElementById('addressLine1').value,
+      line2: document.getElementById('addressLine2').value,
+      city: document.getElementById('addressCity').value,
+      state: document.getElementById('addressState').value,
+      zip: document.getElementById('addressZip').value,
+      country: document.getElementById('addressCountry').value,
+      isDefault: false
+    };
+    
+    try {
+      await APIs.user.addAddress(addr);
+      showToast('Address added!', 'success');
+      document.getElementById('addressFormContainer').style.display = 'none';
+      loadAddresses();
+    } catch (err) {
+      showToast(err.message || 'Failed to add address', 'error');
+    }
+  };
+  
+  async function applyCoupon() {
+    const code = document.getElementById('couponCode').value;
+    if (!code) return;
+    
+    try {
+      const subtotal = cart.reduce((sum, item) => sum + item.price * item.qty, 0);
+      const result = await APIs.coupons.validate(code, subtotal);
+      
+      appliedCoupon = { code, discount: result.discountAmount };
+      document.getElementById('couponStatus').innerHTML = `<span class="success">✓ ${code} applied (-₹${result.discountAmount})</span>`;
+      updateTotal();
+    } catch (err) {
+      document.getElementById('couponStatus').innerHTML = `<span class="error">${err.message}</span>`;
+      appliedCoupon = null;
+    }
+  }
+  
+  function renderOrderItems() {
+    const container = document.getElementById('orderItems');
+    container.innerHTML = cart.map(item => `
+      <div class="order-item">
+        <div class="item-info">
+          <p><strong>${item.name}</strong></p>
+          <p>Size: ${item.size || 'N/A'} | Color: ${item.color || 'N/A'}</p>
+          <p>Qty: ${item.qty}</p>
+        </div>
+        <div class="item-price">₹${(item.price * item.qty).toLocaleString('en-IN')}</div>
+      </div>
+    `).join('');
+  }
+  
+  function updateTotal() {
+    const subtotal = cart.reduce((sum, item) => sum + item.price * item.qty, 0);
+    const shippingMethod = document.querySelector('input[name="shipping"]:checked').value;
+    const shippingCost = { standard: 50, express: 150, overnight: 300 }[shippingMethod];
+    const discount = appliedCoupon ? appliedCoupon.discount : 0;
+    const afterDiscount = subtotal - discount;
+    const tax = Math.round(afterDiscount * 0.08);
+    const total = afterDiscount + shippingCost + tax;
+    
+    document.getElementById('subtotal').textContent = `₹${subtotal.toLocaleString('en-IN')}`;
+    document.getElementById('discount').textContent = `-₹${discount.toLocaleString('en-IN')}`;
+    document.getElementById('shipping').textContent = `₹${shippingCost}`;
+    document.getElementById('tax').textContent = `₹${tax}`;
+    document.getElementById('total').textContent = `₹${total.toLocaleString('en-IN')}`;
+    
+    return { subtotal, discount, shipping: shippingCost, tax, total };
+  }
+  
+  // Event listeners
+  document.querySelectorAll('input[name="shipping"]').forEach(radio => {
+    radio.addEventListener('change', updateTotal);
+  });
+  
+  document.getElementById('payBtn').onclick = async () => {
+    if (!selectedAddress) {
+      showToast('Please select a shipping address', 'error');
+      return;
+    }
+    
+    const { total } = updateTotal();
+    const shippingMethod = document.querySelector('input[name="shipping"]:checked').value;
+    const btn = document.getElementById('payBtn');
+    
+    try {
+      btn.classList.add('loading');
+      btn.textContent = 'Creating order...';
+      
+      // Step 1: Create order
+      const orderData = await APIs.orders.create(
+        cart.map(item => ({
+          productId: item.id,
+          name: item.name,
+          price: item.price,
+          quantity: item.qty,
+          size: item.size,
+          color: item.color,
+        })),
+        selectedAddress,
+        shippingMethod,
+        appliedCoupon?.code
+      );
+      
+      const orderId = orderData.order._id;
+      btn.textContent = 'Creating payment intent...';
+      
+      // Step 2: Create payment intent
+      const { clientSecret } = await APIs.payments.createIntent(orderId);
+      
+      btn.textContent = 'Processing payment...';
+      
+      // Step 3: Confirm payment with Stripe
+      const { paymentIntent, error } = await stripe.confirmCardPayment(clientSecret, {
+        payment_method: {
+          card: cardElement,
+          billing_details: {
+            name: selectedAddress.name,
+            phone: selectedAddress.phone,
+            address: {
+              line1: selectedAddress.line1,
+              city: selectedAddress.city,
+              state: selectedAddress.state,
+              postal_code: selectedAddress.zip,
+              country: selectedAddress.country
+            }
+          }
+        }
+      });
+      
+      if (error) {
+        throw new Error(error.message);
+      }
+      
+      // Step 4: Confirm on backend
+      await APIs.payments.confirm(orderId, paymentIntent.id);
+      
+      showToast('Payment successful! Order confirmed...', 'success');
+      window.clearCart();
+      
+      setTimeout(() => {
+        window.location.href = `confirmation.html?orderId=${orderId}`;
+      }, 1500);
+      
+    } catch (err) {
+      document.getElementById('cardError').textContent = err.message || 'Payment failed';
+      btn.classList.remove('loading');
+      btn.textContent = 'Pay Now';
+    }
+  };
+  
+  // Init
+  initStripe();
+  loadAddresses();
+  renderOrderItems();
+  updateTotal();
+</script>
+</body>
+</html>
