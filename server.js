@@ -3,11 +3,13 @@ const cors = require('cors');
 const bodyParser = require('body-parser');
 const axios = require('axios');
 const dotenv = require('dotenv');
+const path = require('path');
 
 dotenv.config();
 const app = express();
 app.use(cors());
 app.use(bodyParser.json());
+app.use(express.static(path.join(__dirname)));
 
 const CASHFREE_APP_ID = process.env.CASHFREE_APP_ID || '';
 const CASHFREE_SECRET = process.env.CASHFREE_SECRET || '';
@@ -251,6 +253,23 @@ app.get('/api/cashfree/config', (req, res) => {
   return res.json({ appId: CASHFREE_APP_ID, env: CASHFREE_ENV, sdkUrl: CASHFREE_ENV === 'PROD' ? 'https://sdk.cashfree.com/js/ui/1.0.0/cashfree.js' : 'https://sdk.cashfree.com/js/ui/1.0.0/cashfree.sandbox.js' });
 });
 
-app.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`);
+// Serve all frontend pages for client routing
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'index.html'));
 });
+
+app.get('*', (req, res) => {
+  if (req.path.startsWith('/api/')) {
+    return res.status(404).json({ error: 'API route not found' });
+  }
+  return res.sendFile(path.join(__dirname, 'index.html'));
+});
+
+if (require.main === module) {
+  app.listen(PORT, () => {
+    console.log(`Server running on http://localhost:${PORT}`);
+  });
+}
+
+module.exports = app;
+
